@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<blueprint
+  xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+  xsi:schemaLocation="
+    http://www.osgi.org/xmlns/blueprint/v1.0.0
+    http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
+
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="org.h2.Driver" />
+        <property name="url" value="jdbc:h2:tcp://localhost/~/test;MVCC=TRUE;AUTO_RECONNECT=TRUE;IFEXISTS=TRUE;LOCK_MODE=0" />
+        <property name="username" value="sa"/>
+        <property name="password" value="sa"/>
+    </bean>
+
+    <bean id="sqlComponent" class="org.apache.camel.component.sql.SqlComponent">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+
+    <camelContext xmlns="http://camel.apache.org/schema/blueprint">
+
+        <route id="NewbookCostCalcJob">
+
+            <from uri="file:newbook/cost/?include=\d{8}&amp;consumer.delay=600000" />
+
+            <recipientList stopOnException="true">
+                <simple>
+                    exec:/usr/lib/jvm/jdk1.8/bin/java?args=-jar deploy/PracticeSpringBatch.jar simpleJob targetFile=${file:name} --spring.profiles.active=development&amp;useStderrOnEmptyStdout=true
+                </simple>
+            </recipientList>
+            <log message="STDOUT: ${body.getStdout()}." />
+            <log message="STDERR: ${body.getStderr()}." />
+
+        </route>
+
+        <route id="CheckExecutableDateJob" autoStartup="true">
+
+            <from uri="quartz2://servicemix/CheckExecutableDateJob?trigger.repeatCount=1&amp;durableJob=true&amp;recoverableJob=false&amp;cron=0+05+16+*+1-6+?" />
+
+            <recipientList stopOnException="true">
+                <simple>
+                    exec:/usr/lib/jvm/jdk1.8/bin/java?args=-jar deploy/PracticeSpringBatch.jar compositeJob targetFile=${date:now:yyyyMMdd} --spring.profiles.active=development&amp;useStderrOnEmptyStdout=true
+                </simple>
+            </recipientList>
+            <log message="STDOUT: ${body.getStdout()}." />
+            <log message="STDERR: ${body.getStderr()}." />
+
+        </route>
+
+    </camelContext>
+
+</blueprint>
+

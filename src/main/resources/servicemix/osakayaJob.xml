@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<blueprint
+  xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+  xsi:schemaLocation="
+    http://www.osgi.org/xmlns/blueprint/v1.0.0
+    http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
+
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="org.h2.Driver" />
+        <property name="url" value="jdbc:h2:tcp://delivery.fms-alpha.com:9042/deliveryBatchDb;MVCC=TRUE;AUTO_RECONNECT=TRUE;IFEXISTS=TRUE;AUTO_SERVER=TRUE;AUTO_SERVER_PORT=9043;LOCK_MODE=0" />
+        <property name="username" value="fujisan"/>
+        <property name="password" value="fujisan"/>
+    </bean>
+
+    <bean id="sqlComponent" class="org.apache.camel.component.sql.SqlComponent">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+
+    <camelContext xmlns="http://camel.apache.org/schema/blueprint">
+
+        <route id="OsakayaPublisherSupportJob">
+
+            <from uri="file:/usr/local/fujisan.co.jp/LoadingRequirementBatch/osakaya/loading/?noop=true&amp;include=newbooksohin_\d{8}.*csv&amp;idempotentKey=${file:name}-${file:modified}&amp;consumer.delay=600000" />
+
+            <recipientList stopOnException="true">
+                <simple>
+                    exec:/usr/lib/jvm/jdk1.8/bin/java?args=-jar deploy/loadingRequirementBatch.jar OsakayaPublisherSupportJob targetFile=${file:name} --spring.profiles.active=integration&amp;useStderrOnEmptyStdout=true
+                </simple>
+            </recipientList>
+            <log message="STDOUT: ${body.getStdout()}." />
+            <log message="STDERR: ${body.getStderr()}." />
+
+        </route>
+
+        <route id="OsakayaSalesVendorJob">
+
+            <from uri="sqlComponent:
+                SELECT %20
+                    bji.JOB_INSTANCE_ID %20
+                    ,bjep.STRING_VAL %20
+                FROM BATCH_JOB_INSTANCE bji %20
+                INNER JOIN BATCH_JOB_EXECUTION bje %20
+                ON %20
+                    bje.JOB_INSTANCE_ID = bji.JOB_INSTANCE_ID %20
+                    AND %20
+                    bje.STATUS = 'COMPLETED' %20
+                    AND %20
+                    bje.START_TIME >= CURRENT_DATE() %20
+                INNER JOIN BATCH_JOB_EXECUTION_PARAMS bjep %20
+                ON %20
+                    bjep.JOB_EXECUTION_ID = bje.JOB_EXECUTION_ID %20
+                    AND %20
+                    bjep.KEY_NAME = 'targetFile' %20
+                WHERE %20
+                    bji.JOB_NAME = 'OsakayaPublisherSupportJob' %20
+                    AND %20
+                    NOT EXISTS ( %20
+                        SELECT %20
+                            * %20
+                        FROM BATCH_JOB_INSTANCE bji2 %20
+                        INNER JOIN BATCH_JOB_EXECUTION bje2 %20
+                        ON %20
+                            bje2.JOB_INSTANCE_ID = bji2.JOB_INSTANCE_ID %20
+                            AND %20
+                            bje2.START_TIME > bje.START_TIME %20
+                            AND %20
+                            bje2.STATUS != 'FAILDED' %20
+                        INNER JOIN BATCH_JOB_EXECUTION_PARAMS bjep2 %20
+                        ON %20
+                            bjep2.JOB_EXECUTION_ID = bje2.JOB_EXECUTION_ID %20
+                            AND %20
+                            bjep2.KEY_NAME = bjep.KEY_NAME %20
+                            AND %20
+                            bjep2.STRING_VAL = bjep.STRING_VAL %20
+                        WHERE %20
+                            bji2.JOB_NAME = 'OsakayaSalesVendorJob' %20
+                    ) %20
+            ;?consumer.delay=600000" />
+
+            <recipientList stopOnException="true">
+                <simple>
+                    exec:/usr/lib/jvm/jdk1.8/bin/java?args=-jar deploy/loadingRequirementBatch.jar OsakayaSalesVendorJob targetFile=${body['STRING_VAL']} --spring.profiles.active=integration&amp;useStderrOnEmptyStdout=true
+                </simple>
+            </recipientList>
+            <log message="STDOUT: ${body.getStdout()}." />
+            <log message="STDERR: ${body.getStderr()}." />
+
+        </route>
+
+    </camelContext>
+
+</blueprint>

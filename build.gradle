@@ -1,0 +1,65 @@
+buildscript {
+	ext {
+		springBootVersion = '1.4.1.RELEASE'
+		groovyVersion = '2.4.7'
+		spockVersion = '1.1-groovy-2.4-rc-2'
+	}
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+	}
+}
+
+apply plugin: 'groovy'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'spring-boot'
+
+jar {
+	baseName = 'PracticeSpringBatch'
+}
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+// Encoding
+def defaultEncoding = 'UTF-8'
+compileJava {
+	options.encoding = defaultEncoding  // src/main/java配下の*.javaに影響(JAVA_OPTS=-Dfile.encoding で代替可能)
+}
+compileTestJava {
+    options.encoding = defaultEncoding  // src/test/java配下の*.javaに影響(JAVA_OPTS=-Dfile.encoding で代替可能)
+}
+compileGroovy {
+    groovyOptions.encoding = defaultEncoding  // src/main/groovy配下の*.groovyに影響
+    options.encoding = defaultEncoding        // src/main/groovy配下の*.javaに影響
+}
+compileTestGroovy {
+    groovyOptions.encoding = defaultEncoding  // src/test/groovy配下の*.groovyに影響
+    options.encoding = defaultEncoding        // src/test/groovy配下の*.javaに影響
+}
+
+dependencies {
+	// Groovy
+	compile("org.codehaus.groovy:groovy-all:${groovyVersion}")
+	// Spring Batch
+	compile("org.springframework.boot:spring-boot-starter-batch:${springBootVersion}")
+	// DataBase
+	compile("org.springframework.boot:spring-boot-starter-jdbc:${springBootVersion}")
+	runtime('com.h2database:h2')
+	// Test
+	testCompile(
+		"org.springframework.boot:spring-boot-starter-test:${springBootVersion}",
+		"org.spockframework:spock-core:${spockVersion}",
+		"org.spockframework:spock-spring:${spockVersion}",
+		"org.gmock:gmock:0.8.2"
+	)
+}
+
+task wrapper(type: Wrapper) {
+	gradleVersion = '2.13'
+}

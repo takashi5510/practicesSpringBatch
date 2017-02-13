@@ -1,0 +1,28 @@
+spring:
+  profiles:
+    active: test
+  datasource:
+    initialize: false
+    tomcat:
+      max-wait: 10000
+      max-active: 50
+      test-on-borrow: true
+  batch:
+    job:
+      enabled: false
+
+---
+spring:
+  profiles: test
+  datasource:
+    initialize: false
+    url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: sa 
+
+logging:
+#  file: logs/PracticeSpringBatch.log
+  level:
+    root: INFO
+    org.springframework.web: INFO
